@@ -382,6 +382,50 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 new Extents2DF(dstX0, dstY0, dstX1, dstY1));
         }
 
+        public void DrawIndirect(ThreedClass engine, int indexCount, PrimitiveTopology topology, ulong indirectBufferAddress)
+        {
+            engine.Write(IndexBufferCountMethodOffset * 4, indexCount);
+
+            _context.Renderer.Pipeline.SetPrimitiveTopology(topology);
+            _drawState.Topology = topology;
+            _topologySet = true;
+
+            ConditionalRenderEnabled renderEnable = ConditionalRendering.GetRenderEnable(
+                _context,
+                _channel.MemoryManager,
+                _state.State.RenderEnableAddress,
+                _state.State.RenderEnableCondition);
+
+            if (renderEnable == ConditionalRenderEnabled.False)
+            {
+                _drawState.DrawIndexed = false;
+                return;
+            }
+
+            _drawState.FirstIndex = _state.State.IndexBufferState.First;
+            _drawState.IndexCount = indexCount;
+
+            engine.UpdateState();
+
+            var indirectBuffer = _channel.MemoryManager.Physical.BufferCache.GetBufferRange(indirectBufferAddress, 0x14);
+
+            if (_drawState.DrawIndexed)
+            {
+                _context.Renderer.Pipeline.DrawIndexedIndirect(indirectBuffer);
+            }
+            else
+            {
+                _context.Renderer.Pipeline.DrawIndirect(indirectBuffer);
+            }
+
+            _drawState.DrawIndexed = false;
+
+            if (renderEnable == ConditionalRenderEnabled.Host)
+            {
+                _context.Renderer.Pipeline.EndHostConditionalRendering();
+            }
+        }
+
         /// <summary>
         /// Performs a indirect multi-draw, with parameters from a GPU buffer.
         /// </summary>

@@ -259,6 +259,23 @@ namespace Ryujinx.Graphics.OpenGL
             PostDraw();
         }
 
+        public void DrawIndirect(BufferRange indirectBuffer)
+        {
+            if (!_program.IsLinked)
+            {
+                Logger.Debug?.Print(LogClass.Gpu, "Draw error, shader not linked.");
+                return;
+            }
+
+            PreDraw();
+
+            GL.BindBuffer((BufferTarget)All.DrawIndirectBuffer, indirectBuffer.Handle.ToInt32());
+
+            GL.DrawArraysIndirect(_primitiveType, (IntPtr)indirectBuffer.Offset);
+
+            PostDraw();
+        }
+
         private void DrawQuadsImpl(
             int vertexCount,
             int instanceCount,
@@ -584,6 +601,27 @@ namespace Ryujinx.Graphics.OpenGL
                     firstVertex,
                     firstInstance);
             }
+        }
+
+        public void DrawIndexedIndirect(BufferRange indirectBuffer)
+        {
+            if (!_program.IsLinked)
+            {
+                Logger.Debug?.Print(LogClass.Gpu, "Draw error, shader not linked.");
+                return;
+            }
+
+            PreDraw();
+
+            _vertexArray.SetRangeOfIndexBuffer();
+
+            GL.BindBuffer((BufferTarget)All.DrawIndirectBuffer, indirectBuffer.Handle.ToInt32());
+
+            GL.DrawElementsIndirect(_primitiveType, _elementsType, (IntPtr)indirectBuffer.Offset);
+
+            _vertexArray.RestoreIndexBuffer();
+
+            PostDraw();
         }
 
         public void DrawTexture(ITexture texture, ISampler sampler, Extents2DF srcRegion, Extents2DF dstRegion)

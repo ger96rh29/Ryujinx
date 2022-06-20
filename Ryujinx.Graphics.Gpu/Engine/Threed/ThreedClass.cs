@@ -497,6 +497,11 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
             return 0;
         }
 
+        public void DrawIndirect(int indexCount, PrimitiveTopology topology, ulong indirectBufferAddress)
+        {
+            _drawManager.DrawIndirect(this, indexCount, topology, indirectBufferAddress);
+        }
+
         /// <summary>
         /// Clears the current color and depth-stencil buffers.
         /// Which buffers should be cleared can also specified with the arguments.
