@@ -70,6 +70,31 @@ namespace Ryujinx.Graphics.Gpu.Engine.MME
         }
 
         /// <summary>
+        /// Clears one bound color target.
+        /// </summary>
+        /// <param name="state">GPU state at the time of the call</param>
+        /// <param name="arg0">First argument of the call</param>
+        private void ClearColor(IDeviceState state, int arg0)
+        {
+            int index = (arg0 >> 6) & 0xf;
+            int layerCount = state.Read(ColorLayerCountOffset + index * ColorStructSize);
+
+            _processor.ThreedClass.Clear(arg0, layerCount);
+        }
+
+        /// <summary>
+        /// Clears the current depth-stencil target.
+        /// </summary>
+        /// <param name="state">GPU state at the time of the call</param>
+        /// <param name="arg0">First argument of the call</param>
+        private void ClearDepthStencil(IDeviceState state, int arg0)
+        {
+            int layerCount = state.Read(ZetaLayerCountOffset);
+
+            _processor.ThreedClass.Clear(arg0, layerCount);
+        }
+
+        /// <summary>
         /// Performs a indirect indexed draw, with parameters from a GPU buffer.
         /// </summary>
         /// <param name="state">GPU state at the time of the call</param>
@@ -103,31 +128,6 @@ namespace Ryujinx.Graphics.Gpu.Engine.MME
                 1,
                 IndirectIndexedDataEntrySize,
                 Threed.IndirectDrawType.DrawIndexedIndirect);
-        }
-
-        /// <summary>
-        /// Clears one bound color target.
-        /// </summary>
-        /// <param name="state">GPU state at the time of the call</param>
-        /// <param name="arg0">First argument of the call</param>
-        private void ClearColor(IDeviceState state, int arg0)
-        {
-            int index = (arg0 >> 6) & 0xf;
-            int layerCount = state.Read(ColorLayerCountOffset + index * ColorStructSize);
-
-            _processor.ThreedClass.Clear(arg0, layerCount);
-        }
-
-        /// <summary>
-        /// Clears the current depth-stencil target.
-        /// </summary>
-        /// <param name="state">GPU state at the time of the call</param>
-        /// <param name="arg0">First argument of the call</param>
-        private void ClearDepthStencil(IDeviceState state, int arg0)
-        {
-            int layerCount = state.Read(ZetaLayerCountOffset);
-
-            _processor.ThreedClass.Clear(arg0, layerCount);
         }
 
         /// <summary>
