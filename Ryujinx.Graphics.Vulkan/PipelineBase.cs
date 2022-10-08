@@ -391,7 +391,42 @@ namespace Ryujinx.Graphics.Vulkan
 
             var buffer = Gd.BufferManager.GetBuffer(CommandBuffer, indirectBuffer.Handle, false).Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
 
-            Gd.Api.CmdDrawIndexedIndirect(CommandBuffer, buffer, (ulong)indirectBuffer.Offset, 1, 0x14);
+            Gd.Api.CmdDrawIndexedIndirect(CommandBuffer, buffer, (ulong)indirectBuffer.Offset, 1, (uint)indirectBuffer.Size);
+        }
+
+        public void DrawIndexedIndirectCount(BufferRange indirectBuffer, BufferRange parameterBuffer, int maxDrawCount, int stride)
+        {
+            if (!Gd.Capabilities.SupportsIndirectParameters)
+            {
+                throw new NotSupportedException();
+            }
+
+            if (_program.LinkStatus != ProgramLinkStatus.Success)
+            {
+                return;
+            }
+
+            RecreatePipelineIfNeeded(PipelineBindPoint.Graphics);
+            BeginRenderPass();
+            ResumeTransformFeedbackInternal();
+            DrawCount++;
+
+            var buffer = Gd.BufferManager
+                .GetBuffer(CommandBuffer, indirectBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, false)
+                .Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
+
+            var countBuffer = Gd.BufferManager
+                .GetBuffer(CommandBuffer, parameterBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, false)
+                .Get(Cbs, parameterBuffer.Offset, parameterBuffer.Size).Value;
+
+            Gd.DrawIndirectCountApi.CmdDrawIndexedIndirectCount(
+                CommandBuffer,
+                buffer,
+                (ulong)indirectBuffer.Offset,
+                countBuffer,
+                (ulong)parameterBuffer.Offset,
+                (uint)maxDrawCount,
+                (uint)stride);
         }
 
         public void DrawIndirect(BufferRange indirectBuffer)
@@ -408,7 +443,42 @@ namespace Ryujinx.Graphics.Vulkan
 
             var buffer = Gd.BufferManager.GetBuffer(CommandBuffer, indirectBuffer.Handle, false).Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
 
-            Gd.Api.CmdDrawIndirect(CommandBuffer, buffer, (ulong)indirectBuffer.Offset, 1, 0x10);
+            Gd.Api.CmdDrawIndirect(CommandBuffer, buffer, (ulong)indirectBuffer.Offset, 1, (uint)indirectBuffer.Size);
+        }
+
+        public void DrawIndirectCount(BufferRange indirectBuffer, BufferRange parameterBuffer, int maxDrawCount, int stride)
+        {
+            if (!Gd.Capabilities.SupportsIndirectParameters)
+            {
+                throw new NotSupportedException();
+            }
+
+            if (!_program.IsLinked)
+            {
+                return;
+            }
+
+            RecreatePipelineIfNeeded(PipelineBindPoint.Graphics);
+            BeginRenderPass();
+            ResumeTransformFeedbackInternal();
+            DrawCount++;
+
+            var buffer = Gd.BufferManager
+                .GetBuffer(CommandBuffer, indirectBuffer.Handle, indirectBuffer.Offset, indirectBuffer.Size, false)
+                .Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
+
+            var countBuffer = Gd.BufferManager
+                .GetBuffer(CommandBuffer, parameterBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, false)
+                .Get(Cbs, parameterBuffer.Offset, parameterBuffer.Size).Value;
+
+            Gd.DrawIndirectCountApi.CmdDrawIndirectCount(
+                CommandBuffer,
+                buffer,
+                (ulong)indirectBuffer.Offset,
+                countBuffer,
+                (ulong)parameterBuffer.Offset,
+                (uint)maxDrawCount,
+                (uint)stride);
         }
 
         public void DrawTexture(ITexture texture, ISampler sampler, Extents2DF srcRegion, Extents2DF dstRegion)
@@ -463,76 +533,6 @@ namespace Ryujinx.Graphics.Vulkan
         public bool IsCommandBufferActive(CommandBuffer cb)
         {
             return CommandBuffer.Handle == cb.Handle;
-        }
-
-        public void MultiDrawIndirectCount(BufferRange indirectBuffer, BufferRange parameterBuffer, int maxDrawCount, int stride)
-        {
-            if (!Gd.Capabilities.SupportsIndirectParameters)
-            {
-                throw new NotSupportedException();
-            }
-
-            if (!_program.IsLinked)
-            {
-                return;
-            }
-
-            RecreatePipelineIfNeeded(PipelineBindPoint.Graphics);
-            BeginRenderPass();
-            ResumeTransformFeedbackInternal();
-            DrawCount++;
-
-            var buffer = Gd.BufferManager
-                .GetBuffer(CommandBuffer, indirectBuffer.Handle, indirectBuffer.Offset, indirectBuffer.Size, false)
-                .Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
-
-            var countBuffer = Gd.BufferManager
-                .GetBuffer(CommandBuffer, parameterBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, false)
-                .Get(Cbs, parameterBuffer.Offset, parameterBuffer.Size).Value;
-
-            Gd.DrawIndirectCountApi.CmdDrawIndirectCount(
-                CommandBuffer,
-                buffer,
-                (ulong)indirectBuffer.Offset,
-                countBuffer,
-                (ulong)parameterBuffer.Offset,
-                (uint)maxDrawCount,
-                (uint)stride);
-        }
-
-        public void MultiDrawIndexedIndirectCount(BufferRange indirectBuffer, BufferRange parameterBuffer, int maxDrawCount, int stride)
-        {
-            if (!Gd.Capabilities.SupportsIndirectParameters)
-            {
-                throw new NotSupportedException();
-            }
-
-            if (_program.LinkStatus != ProgramLinkStatus.Success)
-            {
-                return;
-            }
-
-            RecreatePipelineIfNeeded(PipelineBindPoint.Graphics);
-            BeginRenderPass();
-            ResumeTransformFeedbackInternal();
-            DrawCount++;
-
-            var buffer = Gd.BufferManager
-                .GetBuffer(CommandBuffer, indirectBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, true)
-                .Get(Cbs, indirectBuffer.Offset, indirectBuffer.Size).Value;
-
-            var countBuffer = Gd.BufferManager
-                .GetBuffer(CommandBuffer, parameterBuffer.Handle, parameterBuffer.Offset, parameterBuffer.Size, true)
-                .Get(Cbs, parameterBuffer.Offset, parameterBuffer.Size).Value;
-
-            Gd.DrawIndirectCountApi.CmdDrawIndexedIndirectCount(
-                CommandBuffer,
-                buffer,
-                (ulong)indirectBuffer.Offset,
-                countBuffer,
-                (ulong)parameterBuffer.Offset,
-                (uint)maxDrawCount,
-                (uint)stride);
         }
 
         public void SetAlphaTest(bool enable, float reference, GAL.CompareOp op)
