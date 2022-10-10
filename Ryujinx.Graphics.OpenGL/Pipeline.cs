@@ -594,7 +594,7 @@ namespace Ryujinx.Graphics.OpenGL
                 return;
             }
 
-            PreDraw();
+            PreDrawVbUnbounded();
 
             _vertexArray.SetRangeOfIndexBuffer();
 
@@ -643,7 +643,7 @@ namespace Ryujinx.Graphics.OpenGL
                 return;
             }
 
-            PreDraw();
+            PreDrawVbUnbounded();
 
             GL.BindBuffer((BufferTarget)All.DrawIndirectBuffer, indirectBuffer.Handle.ToInt32());
 
