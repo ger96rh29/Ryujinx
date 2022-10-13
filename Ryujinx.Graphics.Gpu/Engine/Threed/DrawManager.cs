@@ -9,6 +9,10 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
     /// </summary>
     class DrawManager
     {
+        // Since we don't know the index buffer size for indirect draws,
+        // we must assume a maximum size and use that for buffer data update purposes.
+        private const int MaxIndirectIndexCount = 0x10000;
+
         private readonly GpuContext _context;
         private readonly GpuChannel _channel;
         private readonly DeviceStateWithShadow<ThreedClassState> _state;
@@ -383,25 +387,24 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
         }
 
         /// <summary>
-        /// Performs a indirect multi-draw, with parameters from a GPU buffer.
+        /// Performs a indirect draw, with parameters from a GPU buffer.
         /// </summary>
         /// <param name="engine">3D engine where this method is being called</param>
         /// <param name="topology">Primitive topology</param>
-        /// <param name="indirectBuffer">GPU buffer with the draw parameters, such as count, first index, etc</param>
-        /// <param name="parameterBuffer">GPU buffer with the draw count</param>
+        /// <param name="indirectBufferAddress">Address of the buffer with the draw parameters, such as count, first index, etc</param>
+        /// <param name="parameterBufferAddress">Address of the buffer with the draw count</param>
         /// <param name="maxDrawCount">Maximum number of draws that can be made</param>
-        /// <param name="stride">Distance in bytes between each element on the <paramref name="indirectBuffer"/> array</param>
-        public void MultiDrawIndirectCount(
+        /// <param name="stride">Distance in bytes between each entry on the data pointed to by <paramref name="indirectBufferAddress"/></param>
+        /// <param name="drawType">Type of the indirect draw, which can be indexed or non-indexed, with or without a draw count</param>
+        public void DrawIndirect(
             ThreedClass engine,
-            int indexCount,
             PrimitiveTopology topology,
-            BufferRange indirectBuffer,
-            BufferRange parameterBuffer,
+            ulong indirectBufferAddress,
+            ulong parameterBufferAddress,
             int maxDrawCount,
-            int stride)
+            int stride,
+            IndirectDrawType drawType)
         {
-            engine.Write(IndexBufferCountMethodOffset * 4, indexCount);
-
             _context.Renderer.Pipeline.SetPrimitiveTopology(topology);
             _drawState.Topology = topology;
             _topologySet = true;
@@ -418,18 +421,45 @@ namespace Ryujinx.Graphics.Gpu.Engine.Threed
                 return;
             }
 
-            _drawState.FirstIndex = _state.State.IndexBufferState.First;
-            _drawState.IndexCount = indexCount;
+            bool hasCount = (drawType & IndirectDrawType.Count) != 0;
+            bool indexed = (drawType & IndirectDrawType.Indexed) != 0;
+
+            if (indexed)
+            {
+                _drawState.FirstIndex = 0;
+                _drawState.IndexCount = MaxIndirectIndexCount;
+            }
+
+            _drawState.DrawIndexed = indexed;
 
             engine.UpdateState();
 
-            if (_drawState.DrawIndexed)
+            if (hasCount)
             {
-                _context.Renderer.Pipeline.MultiDrawIndexedIndirectCount(indirectBuffer, parameterBuffer, maxDrawCount, stride);
+                var indirectBuffer = _channel.MemoryManager.Physical.BufferCache.GetBufferRange(indirectBufferAddress, (ulong)maxDrawCount * (ulong)stride);
+                var parameterBuffer = _channel.MemoryManager.Physical.BufferCache.GetBufferRange(parameterBufferAddress, 4);
+
+                if (indexed)
+                {
+                    _context.Renderer.Pipeline.DrawIndexedIndirectCount(indirectBuffer, parameterBuffer, maxDrawCount, stride);
+                }
+                else
+                {
+                    _context.Renderer.Pipeline.DrawIndirectCount(indirectBuffer, parameterBuffer, maxDrawCount, stride);
+                }
             }
             else
             {
-                _context.Renderer.Pipeline.MultiDrawIndirectCount(indirectBuffer, parameterBuffer, maxDrawCount, stride);
+                var indirectBuffer = _channel.MemoryManager.Physical.BufferCache.GetBufferRange(indirectBufferAddress, (ulong)stride);
+
+                if (indexed)
+                {
+                    _context.Renderer.Pipeline.DrawIndexedIndirect(indirectBuffer);
+                }
+                else
+                {
+                    _context.Renderer.Pipeline.DrawIndirect(indirectBuffer);
+                }
             }
 
             _drawState.DrawIndexed = false;
